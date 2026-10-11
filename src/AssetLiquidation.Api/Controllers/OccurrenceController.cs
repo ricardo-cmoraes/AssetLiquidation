@@ -2,11 +2,13 @@ using AssetLiquidation.Api.DTOs;
 using AssetLiquidation.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Asp.Versioning;
 
 namespace AssetLiquidation.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class OccurrenceController : ControllerBase
 {
     private readonly LiquidateDbContext _context;

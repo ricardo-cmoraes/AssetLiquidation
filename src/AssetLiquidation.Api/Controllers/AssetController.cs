@@ -2,11 +2,13 @@ using AssetLiquidation.Api.DTOs;
 using AssetLiquidation.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Asp.Versioning;
 
 namespace AssetLiquidation.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class AssetController : ControllerBase
 {
     private readonly LiquidateDbContext _context;
@@ -20,7 +22,7 @@ public class AssetController : ControllerBase
     /// Cadastra um novo Ativo
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateAssetRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateAssetRequest request, ApiVersion apiVersion)
     {
         try
         {
@@ -40,8 +42,12 @@ public class AssetController : ControllerBase
                 asset.Status.ToString(),
                 asset.CreatedAt
             );
+
             //estudar
-            return CreatedAtAction(nameof(GetById), new {id = asset.Id}, response);
+            return CreatedAtAction(
+                nameof(GetById),
+                new {version = apiVersion.ToString(), id = asset.Id},
+                response);
         }
         catch (ArgumentException ex)
         {
