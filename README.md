@@ -11,7 +11,7 @@ The **Asset Liquidation System** is a backend application designed to simulate f
 
 ### Setup & Execution
 
-1. **Spin up Infrastructure (PostgreSQL)**
+1. **Spin up Infrastructure (PostgreSQL and RabbitMQ)**
    ```bash
    docker-compose up -d
    ```
@@ -20,12 +20,39 @@ The **Asset Liquidation System** is a backend application designed to simulate f
     dotnet ef database update --project src/AssetLiquidation.Core/AssetLiquidation.Core.csproj --startup-project src/AssetLiquidation.Api/AssetLiquidation.Api.csproj
     ```
 3. **Run Application**
+
+    In two different terminals, run the applications
+    
+    Terminal 1: To run the Api
    ```bash
     dotnet run --project src/AssetLiquidation.Api/AssetLiquidation.Api.csproj
     ```
+    Terminal 2: To run the Worker
+   ```bash
+    dotnet run --project src/AssetLiquidation.Worker/AssetLiquidation.Wroker.csproj
+    ```
 4. **Access API Documentation**
     Open http://localhost:5000/swagger (or the configured local port) in your browser.
+5. **Access RabbitMQ UI**
+    
+    Open the docker Desktop and look for the link to the RabbitMQ UI. You will see the same port that you configured in your docker-compose.yml
 
+    ```bash
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        container_name: asset_rabbitmq
+        ports:
+            - "5672:5672"
+            - "15672:15672" #port
+        environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASS: guest
+    ```
+
+    or put:
+    ```bash
+        http://localhost:{port}/
+    ```
 ### API Endpoints
 
 #### AssetController
@@ -86,25 +113,28 @@ The **Asset Liquidation System** is a backend application designed to simulate f
 * AssetLiquidation.slnx: Solution container.
 * AssetLiquidation.Core (Domain & Data Layer): Pure business logic, Rich Domain Entities (Asset, Occurrence), Enums, and LiquidateDbContext mappings.
 * AssetLiquidation.Api (Presentation Layer): RESTful Controllers, Request DTOs, Swagger documentation, and Dependency Injection setup.
+* AsserLiquidation.Worker () : Background Service, Consumers, and Connection with RabbitMq.
 * Isolated Infrastructure (Docker & PostgreSQL 16):
     * docker-compose.yml: Configures PostgreSQL 16 Alpine container listening on port 5432.
     * Persistent Volume (postgres_data): Ensures data durability across container restart
+    * docker-compose.yml: Configures RabbitMQ container listening on port 5672.
 
 ## Solution Structure (Project Overview)
     AssetLiquidation/
     ├── src/
     │   ├── AssetLiquidation.Core/      # Domain Entities, Enums, DbContext & Migrations
-    │   └── AssetLiquidation.Api/       # Controllers, DTOs & Swagger Configuration
-    ├── docker-compose.yml              # PostgreSQL Service & Volume Definition
+    │   ├── AssetLiquidation.Api/       # Controllers, DTOs & Swagger Configuration
+    │   └── AssetLiquidation.Worker/    # Consumers, Background Service
+    ├── docker-compose.yml              # PostgreSQL and RabbitMq Service & Volume Definition
     └── AssetLiquidation.slnx           # Solution File
 
 
 ## Next Steps
 * Configurar GitHub Actions (.github/workflows/ci.yml)
 * Add unit and integration test coverage (xUnit / FluentAssertions).
-* Implement RabbitMQ for asynchronous event ingestion and scalability.
 * Create a Dashboard to report real-time status and metrics of Assets.
 * Configurar a publicação automática da API e da infraestrutura (PostgreSQL/RabbitMQ) em ambiente Cloud (Azure Container Apps / AWS ECS).
+* [React with ASPNET](https://learn.microsoft.com/pt-br/visualstudio/javascript/tutorial-asp-net-core-with-react?view=visualstudio)
 
 ## Resources
 * **Framework & Core:** [.NET 8 Web API & C# 12 Standards](https://learn.microsoft.com/dotnet/)
