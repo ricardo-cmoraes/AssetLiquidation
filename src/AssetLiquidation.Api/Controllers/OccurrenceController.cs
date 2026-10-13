@@ -1,8 +1,11 @@
 using AssetLiquidation.Api.DTOs;
-using AssetLiquidation.Core;
+using AssetLiquidation.Core.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Asp.Versioning;
+using MassTransit;
+using System.Runtime.InteropServices;
+using AssetLiquidation.Core;
 
 namespace AssetLiquidation.Api.Controllers;
 
@@ -12,71 +15,34 @@ namespace AssetLiquidation.Api.Controllers;
 public class OccurrenceController : ControllerBase
 {
     private readonly LiquidateDbContext _context;
-
-    public OccurrenceController(LiquidateDbContext context)
+    private readonly IPublishEndpoint _publishEndpoint;
+    public OccurrenceController(LiquidateDbContext context, IPublishEndpoint publishEndpoint)
     {
         _context = context;
+        _publishEndpoint = publishEndpoint;
     }
-
+    
     [HttpPost]
     public async Task<IActionResult> ProcessOccurrence([FromBody] ProcessOccurrenceRequest request)
     {
-        var asset = await _context.Assets
-            .FirstOrDefaultAsync(a => a.AssetId == request.AssetId);
 
-        if (asset == null)
-            return NotFound(new { message = $"Asset {request.AssetId} not found." });
-        
-        var occurrence = new Occurrence(asset.Id, request.Type, request.Amount);
-
-        try
+        var command = new ProcessOccurrenceCommand
         {
-            if (occurrence.Type == OccurrenceType.Payment)
-            {
-                asset.ProcessPayment(occurrence.Amount);
-            }
-            else if (occurrence.Type == OccurrenceType.Refund)
-            {
-                asset.ProcessRefund(occurrence.Amount);
-            }
-            else if (occurrence.Type == OccurrenceType.Cancellation)
-            {
-                asset.ProcessCancellation();
-            }
-            else
-            {
-                return BadRequest(new { message = "Not suppported occurrence type"});
-            }
+            AssetId = request.AssetId,
+            Type = request.Type,
+            Amount = request.Amount
+        };
 
-            occurrence.MarkAsCompleted();
-            _context.Occurrences.Add(occurrence);
-            await _context.SaveChangesAsync();
+        await _publishEndpoint.Publish(command);
 
-            return Ok(new
-            {
-                message = "Occurrence successfully processed.",
-                occurrenceId = occurrence.Id,
-                assetId = asset.AssetId,
-                newCurrentAmount = asset.CurrentAmount,
-                assetStatus = asset.Status.ToString()
-            });
-        }
-        catch (ArgumentException ex)
+        return Accepted(new
         {
-            occurrence.MarkAsRejected(ex.Message);
-            _context.Occurrences.Add(occurrence);
-            await _context.SaveChangesAsync();
-
-            return BadRequest(new {message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            occurrence.MarkAsRejected(ex.Message);
-            _context.Occurrences.Add(occurrence);
-            await _context.SaveChangesAsync();
-
-            return UnprocessableEntity(new {message = ex.Message });
-        }
+            message = "Occurrence request successfully accepted for processing.",
+            correlationId = command.CorrelationId,
+            assetId = command.AssetId,
+            status = "Queued",
+            queueAt = command.CreatedAt
+        });
     }   
 
     [HttpGet("occurrence/{assetId}")]

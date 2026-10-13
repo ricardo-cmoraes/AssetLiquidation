@@ -1,12 +1,14 @@
-using Asp.Versioning;
 using AssetLiquidation.Core;
 using Microsoft.EntityFrameworkCore;
+using Asp.Versioning;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Adicionar suporte a Controllers REST
+// Controllers REST
 builder.Services.AddControllers();
 
+// Versioning API
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -20,14 +22,32 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-//conection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-// 2. Configurar o DbContext com Banco de Dados Em Memória
+//PostgreSQL data base
 builder.Services.AddDbContext<LiquidateDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 3. Documentação Swagger/OpenAPI (nativo do .NET)
+//RabbitMQ config
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var configuration = context.GetRequiredService<IConfiguration>();
+        var rabbitHost = configuration["RabbitMQ:Host"] ?? "localhost";
+        var rabbitUser = configuration["RabbitMQ:Username"] ?? "guest";
+        var rabbitPass = configuration["RabbitMQ:Password"] ?? "guest";
+
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
+        });
+        
+    });
+});
+
+
+// Documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
